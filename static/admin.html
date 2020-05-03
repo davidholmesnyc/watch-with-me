@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset=utf-8 />
+<title>Family Movie Night Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;700&display=swap" rel="stylesheet">
+  
+  <!--
+
+  Uses the latest versions of video.js and videojs-http-streaming.
+
+  To use specific versions, please change the URLs to the form:
+
+  <link href="https://unpkg.com/video.js@6.7.1/dist/video-js.css" rel="stylesheet">
+  <script src="https://unpkg.com/video.js@6.7.1/dist/video.js"></script>
+  <script src="https://unpkg.com/@videojs/http-streaming@0.9.0/dist/videojs-http-streaming.js"></script>
+
+  -->
+
+  <link href="https://unpkg.com/video.js/dist/video-js.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.7.0/dropzone.min.css" rel="stylesheet">
+  <style>
+
+
+   html,
+   body {
+     height: 100%;
+    
+     font-family: 'Open Sans', sans-serif;
+   }
+
+/*   .container {
+     height: 100%;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+   }
+*/
+   .purple-square {
+      text-align: center
+   }
+   #time{
+    font-size: 100px;
+    font-weight: bold;
+   }
+/*   .video-js {
+       position: relative !important;
+       width: 100% !important;
+       height: auto !important;
+   }
+   .vjs-poster {
+       position: absolute !important;
+       left: 0;
+       right: 0;
+       top: 0;
+       bottom: 0;
+   }*/
+
+   .start{
+    cursor: pointer;
+    font-size: 40px;
+    font-weight: bold;
+    background: #4b924b;
+    padding: 20px;
+    border-radius: 20px;
+    min-width:400px;
+    height:60px;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+
+   }
+  </style>
+</head>
+<body>
+
+
+    <div class="container ">
+      <form action="/file-upload"
+            class="dropzone"
+            id="my-awesome-dropzone" style="display:block">
+              
+              
+
+            </form>
+      <div style="display:block">
+        <br/>
+      <select>
+          <option value="">10</option>
+      </select>
+      :
+      <select>
+         <option value="">10</option>
+      </select>
+
+      <select>
+          <option value="">PM</option>
+      </select>
+    </div>
+
+ <!--      <div onclick="startPage()" id="startPage"  class="start" style="cursor:pointer"> Start </div>
+      <div id="video" class="purple-square" style="display:none">
+          <div>Grab some popcorn</div>
+          <div id="time"></div>
+          <div>till movie starts</div>
+      </div> -->
+
+    </div>
+ 
+
+<!--   <video-js id="my_video_1" class="vjs-default-skin" controls preload="auto" width="640" height="268">
+    <source src="http://18.204.217.193:8080/live/test.m3u8" type="application/x-mpegURL">
+  </video-js> -->
+
+  <script src="https://unpkg.com/video.js/dist/video.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.7.0/dropzone.min.js"></script>
+  <script src="https://unpkg.com/@videojs/http-streaming/dist/videojs-http-streaming.js"></script>
+  <script type="text/javascript">
+
+    function startPage(){
+      document.getElementById("startPage").style.display = "none";
+      document.getElementById("video").style.display = "block";
+      SwitchToVideoBox(parseInt(StartTime))
+    }
+    function findGetParameter(parameterName) {
+        var result = null,
+            tmp = [];
+        location.search
+            .substr(1)
+            .split("&")
+            .forEach(function (item) {
+              tmp = item.split("=");
+              if (tmp[0] === parameterName) result = decodeURIComponent(tmp[1]);
+            });
+        return result;
+    }
+
+    var StartTime = findGetParameter("StartTime")
+    var StartTimeHour = parseInt(StartTime.substring(0, 2));
+    var StartTimeMinute =  parseInt(StartTime.substring(2, 4));
+    (function() {
+      var start = new Date;
+      start.setHours(StartTimeHour, StartTimeMinute, 0); // 11pm
+
+      function pad(num) {
+        return ("0" + parseInt(num)).substr(-2);
+      }
+
+      function tick() {
+        var now = new Date;
+        if (now > start) { // too late, go to tomorrow
+          start.setDate(start.getDate() + 1);
+        }
+        var remain = ((start - now) / 1000);
+        var hh = pad((remain / 60 / 60) % 60);
+        var mm = pad((remain / 60) % 60);
+        var ss = pad(remain % 60);
+        document.getElementById('time').innerHTML =
+          hh + ":" + mm + ":" + ss;
+        setTimeout(tick, 1000);
+      }
+
+      document.addEventListener('DOMContentLoaded', tick);
+    })();
+    b = ""
+    function SwitchToVideoBox(startTime){
+      var today = new Date(); 
+      var currentTime = parseInt(today.getHours() + '' +  today.getMinutes())
+      if(currentTime >= startTime){
+        document.getElementById("video").innerHTML = ' <video-js id="my_video_1" class="vjs-default-skin" src="http://vjs.zencdn.net/v/oceans.mp4" controls preload="auto" autoplay width="400px" height="400px"><source src="'+findGetParameter("VideoURL")+'" type="application/x-mpegURL"></video-js><div class="start" onclick="b.requestFullscreen()">Full Screen</div>'
+
+        var player = videojs('my_video_1');
+        player.requestFullscreen()
+        player.requestFullscreen()
+        b = player
+        return true
+      }
+
+      setTimeout(function(){
+        SwitchToVideoBox(startTime)
+      },1000)
+    }
+   
+  
+
+  </script>
+  <script>
+     
+  </script>
+  
+</body>
+</html>

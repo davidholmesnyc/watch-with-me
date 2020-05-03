@@ -1,0 +1,161 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  ServerEndTime:
+    Description: This will shutdown the server at now + $X hours from now. 
+    Type: "String"
+    Default: "6 hours"
+    AllowedValues:
+      - "1 hour"
+      - "2 hours"
+      - "3 hours"
+      - "4 hours"
+      - "5 hours"
+      - "6 hours"
+      - "7 hours"
+      - "8 hours"
+      - "9 hours"
+      - "10 hours"
+      - "11 hours"
+      - "12 hours"
+      - "never"  
+  StreamStartTime:
+    Description: The time the stream will start (eastern time)
+    Type: "String"
+    Default: "now + 5 min"
+    AllowedValues:
+      - "now + 5 min"
+      - "1200"
+      - "1300"
+      - "1400"
+      - "1500"
+      - "1600"
+      - "1700"
+      - "1800"
+      - "1900"
+      - "2000"
+      - "2100"
+      - "2200"
+      - "2300"
+
+  DownloadVideoURL:
+    Description: The link to the mp4 file that you want to live stream. 
+    Type: String
+    Default: https://archive.org/download/FrankensteinfullMovie/Frankenstein1910.mp4
+    AllowedPattern: https?://.+
+    ConstraintDescription: must be an http or https url
+ 
+
+ 
+
+#   SSHKeyName:
+#     Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+#     Type: AWS::EC2::KeyPair::KeyName
+#     ConstraintDescription: must be the name of an existing EC2 KeyPair.  
+
+
+
+
+Resources:
+  Server:
+    Type: AWS::EC2::Instance
+    Properties:
+      DisableApiTermination: 'false'
+      InstanceInitiatedShutdownBehavior: stop
+      EbsOptimized: 'true'
+      ImageId: ami-0323c3dd2da7fb37d
+      InstanceType: c5d.4xlarge
+      KeyName: family-video-stream
+      Monitoring: 'false'
+      SecurityGroupIds:
+       - Ref: sgnginxrtmplivevideoserver
+      # NetworkInterfaces:
+      # - DeleteOnTermination: 'true'
+      #   DeviceIndex: 0
+      #   SubnetId: subnet-bea4bb92
+      #   GroupSet:
+      #   - sg-02f39466ea85ea5c5
+      UserData:
+        Fn::Base64: !Sub |
+           #!/bin/bash -xe
+           yum update -y
+           sudo amazon-linux-extras install docker
+           sudo service docker start
+           sudo usermod -a -G docker ec2-user
+           sudo docker pull domorewithdavid/nginx-rtmp-live-video
+           sudo docker run  -d --name video-server -e TZ=America/New_York -it -p 1935:1935 -p 80:80 --rm  domorewithdavid/nginx-rtmp-live-video  
+           
+
+           docker exec -it -d video-server curl -X GET -L  "${DownloadVideoURL}" --output video.mp4
+           
+           docker exec -it -d  video-server sh -c "echo 'ffmpeg -re -y -i /www/server/video.mp4 -vcodec libx264  -f flv \"rtmp:/localhost:1935/stream/video\"' > run.txt "
+           
+           docker exec -it -d video-server sh -c "at ${StreamStartTime} < /www/server/run.txt"
+
+           echo '${StreamStartTime}' > /home/ec2-user/test.txt
+           echo 'shutdown' > /home/ec2-user/shutdown.txt
+
+           at now + ${ServerEndTime} < /home/ec2-user/shutdown.txt
+
+           
+
+  sgnginxrtmplivevideoserver:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: nginx-rtmp-live-video-sever
+      VpcId: vpc-61c20c19
+  ingress1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Ref: sgnginxrtmplivevideoserver
+      IpProtocol: tcp
+      FromPort: '80'
+      ToPort: '80'
+      CidrIp: 0.0.0.0/0
+  ingress2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Ref: sgnginxrtmplivevideoserver
+      IpProtocol: tcp
+      FromPort: '8080'
+      ToPort: '8080'
+      CidrIp: 0.0.0.0/0
+  ingress3:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Ref: sgnginxrtmplivevideoserver
+      IpProtocol: tcp
+      FromPort: '1935'
+      ToPort: '1935'
+      CidrIp: 0.0.0.0/0
+  ingress4:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Ref: sgnginxrtmplivevideoserver
+      IpProtocol: tcp
+      FromPort: '22'
+      ToPort: '22'
+      CidrIp: 0.0.0.0/0
+  egress1:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId:
+        Ref: sgnginxrtmplivevideoserver
+      IpProtocol: "-1"
+      CidrIp: 0.0.0.0/0
+Description: 'Creates a server for streaming live video from a file '
+Outputs:
+  PublicIp:
+    Description: Server Public IP
+    Value: !GetAtt Server.PublicIp
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicIp"
+  StreamURL:
+    Description: The direct url to the video stream.
+    Value: !Sub 'http://${Server.PublicIp}/static/player.html?StartTime=${StreamStartTime}&VideoURL=http://${Server.PublicIp}/live/video.m3u8'
+    Export:
+      Name: "stream-url"
